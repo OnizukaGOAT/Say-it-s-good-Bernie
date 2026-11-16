@@ -287,6 +287,9 @@
   .rv-img figcaption { color: var(--muted); font-size: 0.85rem; margin-top: 8px; font-style: italic; }
   .badge-draft { background: rgba(224,90,48,0.15); color: var(--accent2); border: 1px solid var(--accent2); font-size: 10px; font-weight: 700; letter-spacing: 0.05em; text-transform: uppercase; padding: 1px 8px; border-radius: 2rem; margin-left: 6px; vertical-align: middle; }
   .draft-note { font-family: 'DM Sans', sans-serif; font-size: 12px; color: var(--muted); letter-spacing: 0; margin-left: 8px; }
+  .tile-sub { font-size: 0.78rem; color: #cfcac2; margin-top: 4px; line-height: 1.3; text-shadow: 0 1px 4px rgba(0,0,0,0.9);
+    display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+  .detail-name { font-family: 'Bebas Neue', sans-serif; font-size: 1.2rem; letter-spacing: 0.1em; color: var(--accent2); margin-bottom: 2px; }
 </style>
 </head>
 <body>
@@ -342,8 +345,8 @@
     <div class="card">
       <div class="form-grid">
         <div>
-          <label>Título</label>
-          <input type="text" id="f-title" placeholder="Ej: Fullmetal Alchemist: Brotherhood">
+          <label>Nombre del anime / personaje</label>
+          <input type="text" id="f-subject" placeholder="Ej: Frieren, Edward Elric...">
         </div>
         <div>
           <label>Tipo</label>
@@ -352,6 +355,10 @@
             <option value="Personaje">Personaje</option>
           </select>
         </div>
+      </div>
+      <div class="form-row">
+        <label>Título de la reseña <span style="text-transform:none;letter-spacing:0">(opcional)</span></label>
+        <input type="text" id="f-title" placeholder="Ej: Un viaje sobre el paso del tiempo">
       </div>
       <div class="form-row url-row">
         <div>
@@ -399,7 +406,7 @@ const JSONBIN_BIN_ID     = "6afa5210ffd5d16053c42fa9";
 // ============================================
 //  ESTADO
 // ============================================
-let reviews       = [];   // [{id, title, cat, cover, text, date}]
+let reviews       = [];   // [{id, subject, title, cat, cover, text, date}]
 let binId         = JSONBIN_BIN_ID;
 let adminUnlocked = false;
 let adminKey      = "";
@@ -421,6 +428,8 @@ function safeUrl(u) {
   u = (u || "").trim();
   return /^(https?:\/\/|[\w.\-\/]+\.(png|jpe?g|gif|webp|avif|svg)$)/i.test(u) ? u : "";
 }
+function rvName(r)  { return r.subject || r.title || ""; }
+function rvTitle(r) { return r.subject ? (r.title || "") : ""; }   // reseñas antiguas: solo tenían título
 function norm(s) {
   return String(s || "").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
 }
@@ -563,7 +572,7 @@ function renderGrid() {
 
   var list = reviews.filter(function(r) {
     if (currentCat !== "all" && r.cat !== currentCat) return false;
-    if (q && norm(r.title).indexOf(q) === -1) return false;
+    if (q && norm(rvName(r) + ' ' + rvTitle(r)).indexOf(q) === -1) return false;
     return true;
   });
 
@@ -575,7 +584,8 @@ function renderGrid() {
       '<div class="tile-fallback">&#127912;</div>' +
       (cover ? '<img src="' + esc(cover) + '" alt="" loading="lazy" onerror="this.style.display=\'none\'">' : '') +
       '<span class="tile-type">' + esc(r.cat) + '</span>' +
-      '<div class="tile-overlay"><div class="tile-title">' + esc(r.title) + '</div></div>' +
+      '<div class="tile-overlay"><div class="tile-title">' + esc(rvName(r)) + '</div>' +
+        (rvTitle(r) ? '<div class="tile-sub">' + esc(rvTitle(r)) + '</div>' : '') + '</div>' +
     '</div>';
   }).join("");
 }
@@ -588,11 +598,13 @@ function renderDetail(r) {
   document.getElementById("detail-content").innerHTML =
     '<div class="detail">' +
       '<div class="detail-cover">' +
-        (cover ? '<img src="' + esc(cover) + '" alt="' + esc(r.title) + '" onerror="this.style.display=\'none\'">' : '') +
+        (cover ? '<img src="' + esc(cover) + '" alt="' + esc(rvName(r)) + '" onerror="this.style.display=\'none\'">' : '') +
       '</div>' +
       '<div>' +
         '<span class="detail-badge">' + esc(r.cat) + '</span>' +
-        '<h1 class="detail-title">' + esc(r.title) + '</h1>' +
+        (rvTitle(r)
+          ? '<div class="detail-name">' + esc(rvName(r)) + '</div><h1 class="detail-title">' + esc(rvTitle(r)) + '</h1>'
+          : '<h1 class="detail-title">' + esc(rvName(r)) + '</h1>') +
         '<div class="detail-date">' + esc(fmtDate(r.date)) + '</div>' +
         '<div class="detail-sep"></div>' +
         '<div class="detail-text">' + renderText(r.text) + '</div>' +
@@ -640,11 +652,13 @@ function insertImage() {
 }
 
 function updatePreview() {
-  var title = document.getElementById("f-title").value.trim();
-  var text  = document.getElementById("f-text").value;
+  var title   = document.getElementById("f-title").value.trim();
+  var subject = document.getElementById("f-subject").value.trim();
+  var text    = document.getElementById("f-text").value;
   document.getElementById("preview-box").innerHTML =
     '<div class="detail-badge">Vista previa</div>' +
-    '<h1 class="detail-title" style="font-size:2rem">' + esc(title || "(Sin título)") + '</h1>' +
+    (title ? '<div class="detail-name">' + esc(subject || "(Sin nombre)") + '</div>' : '') +
+    '<h1 class="detail-title" style="font-size:2rem">' + esc(title || subject || "(Sin nombre)") + '</h1>' +
     '<div class="detail-sep"></div>' +
     '<div class="detail-text">' + renderText(text) + '</div>';
 }
@@ -683,6 +697,7 @@ function syncFormButtons() {
 function resetForm() {
   editingId = null;
   editingKind = null;
+  document.getElementById("f-subject").value = "";
   document.getElementById("f-title").value = "";
   document.getElementById("f-cat").value = "Anime";
   document.getElementById("f-cover").value = "";
@@ -693,18 +708,19 @@ function resetForm() {
 }
 
 function readForm(forPublish) {
+  var subject = document.getElementById("f-subject").value.trim();
   var title = document.getElementById("f-title").value.trim();
   var cat   = document.getElementById("f-cat").value;
   var cover = document.getElementById("f-cover").value.trim();
   var text  = document.getElementById("f-text").value.trim();
   if (forPublish) {
-    if (!title) { alert("Escribe un título"); return null; }
+    if (!subject) { alert("Escribe el nombre del anime o personaje"); return null; }
     if (!text)  { alert("Escribe la reseña"); return null; }
-  } else if (!title && !text) {
-    alert("Escribe al menos un título o algo de texto."); return null;
+  } else if (!subject && !title && !text) {
+    alert("Escribe al menos el nombre, un título o algo de texto."); return null;
   }
   if (cover && !safeUrl(cover)) { alert("La portada debe ser una URL https://... o una ruta como img/portada.jpg"); return null; }
-  return { title: title, cat: cat, cover: cover, text: text };
+  return { subject: subject, title: title, cat: cat, cover: cover, text: text };
 }
 
 async function publishReview() {
@@ -715,9 +731,9 @@ async function publishReview() {
 
   if (editingKind === "review") {
     var r = reviews.find(function(x){ return x.id === editingId; });
-    if (r) { r.title = f.title; r.cat = f.cat; r.cover = f.cover; r.text = f.text; }
+    if (r) { r.subject = f.subject; r.title = f.title; r.cat = f.cat; r.cover = f.cover; r.text = f.text; }
   } else {
-    reviews.unshift({ id: wasDraftId || Date.now().toString(), title: f.title, cat: f.cat, cover: f.cover, text: f.text, date: Date.now() });
+    reviews.unshift({ id: wasDraftId || Date.now().toString(), subject: f.subject, title: f.title, cat: f.cat, cover: f.cover, text: f.text, date: Date.now() });
   }
   renderAll();
   var ok = await saveData();
@@ -739,9 +755,9 @@ function saveDraft() {
   if (!f) return;
   if (editingKind === "draft") {
     var d = drafts.find(function(x){ return x.id === editingId; });
-    if (d) { d.title = f.title; d.cat = f.cat; d.cover = f.cover; d.text = f.text; d.date = Date.now(); }
+    if (d) { d.subject = f.subject; d.title = f.title; d.cat = f.cat; d.cover = f.cover; d.text = f.text; d.date = Date.now(); }
   } else {
-    drafts.unshift({ id: Date.now().toString(), title: f.title, cat: f.cat, cover: f.cover, text: f.text, date: Date.now() });
+    drafts.unshift({ id: Date.now().toString(), subject: f.subject, title: f.title, cat: f.cat, cover: f.cover, text: f.text, date: Date.now() });
   }
   if (!persistDrafts()) return;
   resetForm();
@@ -750,7 +766,8 @@ function saveDraft() {
 }
 
 function fillForm(item) {
-  document.getElementById("f-title").value = item.title;
+  document.getElementById("f-subject").value = item.subject || item.title || "";
+  document.getElementById("f-title").value = item.subject ? (item.title || "") : "";
   document.getElementById("f-cat").value = item.cat;
   document.getElementById("f-cover").value = item.cover || "";
   document.getElementById("f-text").value = item.text;
@@ -815,8 +832,8 @@ function renderAdmin() {
         return '<div class="card admin-item">' +
           adminThumb(d) +
           '<div class="admin-info">' +
-            '<div class="title">' + esc(d.title || "(Sin título)") + ' <span class="badge-draft">Borrador</span></div>' +
-            '<div class="sub">' + esc(d.cat) + ' · editado ' + esc(fmtDate(d.date)) + '</div>' +
+            '<div class="title">' + esc(rvName(d) || "(Sin nombre)") + ' <span class="badge-draft">Borrador</span></div>' +
+            '<div class="sub">' + (rvTitle(d) ? esc(rvTitle(d)) + ' · ' : '') + esc(d.cat) + ' · editado ' + esc(fmtDate(d.date)) + '</div>' +
           '</div>' +
           '<div class="admin-btns">' +
             '<button class="btn btn-primary btn-small" onclick="editDraft(\'' + esc(d.id) + '\')">Continuar</button>' +
@@ -833,8 +850,8 @@ function renderAdmin() {
     return '<div class="card admin-item">' +
       adminThumb(r) +
       '<div class="admin-info">' +
-        '<div class="title">' + esc(r.title) + '</div>' +
-        '<div class="sub">' + esc(r.cat) + ' · ' + esc(fmtDate(r.date)) + '</div>' +
+        '<div class="title">' + esc(rvName(r)) + '</div>' +
+        '<div class="sub">' + (rvTitle(r) ? esc(rvTitle(r)) + ' · ' : '') + esc(r.cat) + ' · ' + esc(fmtDate(r.date)) + '</div>' +
       '</div>' +
       '<div class="admin-btns">' +
         '<button class="btn btn-ghost btn-small" onclick="openReview(\'' + esc(r.id) + '\')">Ver</button>' +
